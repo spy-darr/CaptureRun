@@ -4,21 +4,33 @@ body {
 }
 
 #map {
-  height: 70vh;
+  height: 100vh;
 }
 
-.controls {
-  padding: 10px;
-  display: flex;
-  gap: 10px;
-}
-
-.stats, .leaderboard {
+.panel {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #0D1117;
+  color: white;
   padding: 10px;
 }
 
 button {
   padding: 10px;
-  font-size: 16px;
-  cursor: pointer;
+  margin-right: 10px;
+  background: #2ECC71;
+  border: none;
+  color: white;
+  font-weight: bold;
+}
+
+.stats {
+  margin-top: 10px;
+}
+
+.leaderboard {
+  margin-top: 10px;
+  max-height: 150px;
+  overflow-y: auto;
 }
