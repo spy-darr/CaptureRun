@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Territory Runner</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="controls">
+  <button onclick="startRun()">Start Run</button>
+  <button onclick="stopRun()">Stop Run</button>
+</div>
+
+<div class="stats">
+  <p>Distance: <span id="distance">0</span> km</p>
+  <p>Area: <span id="area">0</span> km²</p>
+</div>
+
+<div class="leaderboard">
+  <h3>Leaderboard</h3>
+  <ul id="leaderboard"></ul>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
