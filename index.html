@@ -2,36 +2,39 @@
 <html>
 <head>
   <title>Territory Runner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
 </head>
+
 <body>
 
 <div id="map"></div>
 
-<div class="controls">
-  <button onclick="startRun()">Start Run</button>
-  <button onclick="stopRun()">Stop Run</button>
+<div class="panel">
+  <button onclick="startRun()">▶ Start</button>
+  <button onclick="stopRun()">⏹ Stop</button>
+
+  <div class="stats">
+    <div>Distance: <span id="distance">0</span> km</div>
+    <div>Area: <span id="area">0</span> km²</div>
+    <div>Zone: <span id="zone">-</span></div>
+  </div>
+
+  <div class="leaderboard">
+    <h3>🏆 Global</h3>
+    <ul id="leaderboard"></ul>
+  </div>
 </div>
 
-<div class="stats">
-  <p>Distance: <span id="distance">0</span> km</p>
-  <p>Area: <span id="area">0</span> km²</p>
-</div>
-
-<div class="leaderboard">
-  <h3>Leaderboard</h3>
-  <ul id="leaderboard"></ul>
-</div>
-
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="firebase.js"></script>
 <script src="app.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 </body>
 </html>
