@@ -1,0 +1,24 @@
+body {
+  margin: 0;
+  font-family: Arial;
+}
+
+#map {
+  height: 70vh;
+}
+
+.controls {
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.stats, .leaderboard {
+  padding: 10px;
+}
+
+button {
+  padding: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
