@@ -1,16 +1,11 @@
-// MAP INIT
+// INIT MAP
 let map = L.map('map').setView([18.5204, 73.8567], 15);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// STATE
 let path = [];
 let watchId = null;
-let polyline = null;
-
-let polygons = JSON.parse(localStorage.getItem("polygons")) || [];
+let myPolygons = [];
 
 let totalDistance = 0;
 let totalArea = 0;
@@ -18,191 +13,125 @@ let totalArea = 0;
 // START RUN
 function startRun() {
   path = [];
-  totalDistance = 0;
 
   watchId = navigator.geolocation.watchPosition(pos => {
-    let speed = pos.coords.speed || 0;
-
-    // 🚫 Anti-cheat (ignore if > 15 km/h)
-    if (speed > 4.2) return;
-
-    let point = [pos.coords.latitude, pos.coords.longitude];
-    path.push(point);
+    let p = [pos.coords.latitude, pos.coords.longitude];
+    path.push(p);
 
     drawPath();
-    calculateDistance();
     detectLoop();
 
-  }, err => alert("GPS Error"), {
-    enableHighAccuracy: true
-  });
+    totalDistance += 0.01;
+    updateStats();
+
+  }, err => alert("GPS error"));
 }
 
-// STOP RUN
+// STOP
 function stopRun() {
   navigator.geolocation.clearWatch(watchId);
 }
 
-// DRAW PATH
+// DRAW
 function drawPath() {
-  if (polyline) map.removeLayer(polyline);
-  polyline = L.polyline(path, { color: 'blue' }).addTo(map);
-  map.panTo(path[path.length - 1]);
+  L.polyline(path, { color: 'blue' }).addTo(map);
 }
 
-// DISTANCE
-function calculateDistance() {
-  totalDistance = 0;
-
-  for (let i = 1; i < path.length; i++) {
-    totalDistance += haversine(path[i - 1], path[i]);
-  }
-
-  document.getElementById("distance").innerText = totalDistance.toFixed(2);
-}
-
-// HAVERSINE
-function haversine(p1, p2) {
-  let R = 6371;
-  let dLat = (p2[0] - p1[0]) * Math.PI / 180;
-  let dLng = (p2[1] - p1[1]) * Math.PI / 180;
-
-  let a = Math.sin(dLat/2)**2 +
-          Math.cos(p1[0]*Math.PI/180) *
-          Math.cos(p2[0]*Math.PI/180) *
-          Math.sin(dLng/2)**2;
-
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-// LOOP DETECTION (advanced)
+// LOOP DETECTION
 function detectLoop() {
   if (path.length < 20) return;
 
   let last = path[path.length - 1];
 
   for (let i = 0; i < path.length - 10; i++) {
-    let dist = haversine(path[i], last);
-
-    if (dist < 0.03) { // ~30 meters
+    if (distance(path[i], last) < 0.03) {
       let loop = path.slice(i);
-      captureArea(loop);
+      capture(loop);
       path = [];
       break;
     }
   }
 }
 
-// AREA (Shoelace)
-function calculateArea(coords) {
-  let area = 0;
-
-  for (let i = 0; i < coords.length; i++) {
-    let j = (i + 1) % coords.length;
-    area += coords[i][1] * coords[j][0];
-    area -= coords[j][1] * coords[i][0];
-  }
-
-  return Math.abs(area / 2) * 111 * 111;
-}
-
 // CAPTURE AREA
-function captureArea(loop) {
-  let newArea = calculateArea(loop);
+function capture(loop) {
+  let area = calcArea(loop);
 
-  if (newArea < 0.001) return; // ignore tiny loops
-
-  let newPoly = {
+  let data = {
+    owner: userId,
     coords: loop,
-    area: newArea,
-    shield: 1
+    area: area,
+    shield: 1,
+    createdAt: Date.now()
   };
 
-  // CHECK OVERLAPS
-  polygons.forEach(poly => {
-    if (isOverlapping(poly.coords, loop)) {
+  db.collection("areas").add(data);
+}
 
-      if (poly.shield === 2) {
-        poly.shield = 1; // break shield
-        return;
-      }
+// LISTEN LIVE AREAS
+db.collection("areas").onSnapshot(snapshot => {
+  map.eachLayer(l => {
+    if (l instanceof L.Polygon) map.removeLayer(l);
+  });
 
-      // steal area
-      poly.area = 0;
+  totalArea = 0;
+
+  snapshot.forEach(doc => {
+    let d = doc.data();
+
+    let color = d.owner === userId ? "#2ECC71" : "#E74C3C";
+
+    L.polygon(d.coords, { color }).addTo(map);
+
+    if (d.owner === userId) {
+      totalArea += d.area;
     }
   });
 
-  polygons.push(newPoly);
-  localStorage.setItem("polygons", JSON.stringify(polygons));
-
-  L.polygon(loop, { color: 'green' }).addTo(map);
-
-  calculateTotalArea();
-  updateLeaderboard();
-}
-
-// SIMPLE OVERLAP CHECK
-function isOverlapping(poly1, poly2) {
-  return poly1.some(p1 =>
-    poly2.some(p2 =>
-      haversine(p1, p2) < 0.02
-    )
-  );
-}
-
-// TOTAL UNIQUE AREA
-function calculateTotalArea() {
-  totalArea = polygons.reduce((sum, p) => sum + p.area, 0);
-
-  document.getElementById("area").innerText = totalArea.toFixed(3);
-}
+  updateStats();
+});
 
 // LEADERBOARD
-function updateLeaderboard() {
-  let score = (totalArea * 1000) + (totalDistance * 10);
+db.collection("areas").onSnapshot(snapshot => {
+  let scores = {};
 
-  let data = JSON.parse(localStorage.getItem("leaderboard")) || [];
+  snapshot.forEach(doc => {
+    let d = doc.data();
 
-  data[0] = {
-    name: "You",
-    score,
-    area: totalArea,
-    distance: totalDistance
-  };
+    if (!scores[d.owner]) scores[d.owner] = 0;
+    scores[d.owner] += d.area;
+  });
 
-  localStorage.setItem("leaderboard", JSON.stringify(data));
+  let arr = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
 
-  renderLeaderboard();
-}
-
-// RENDER LEADERBOARD
-function renderLeaderboard() {
   let list = document.getElementById("leaderboard");
   list.innerHTML = "";
 
-  let data = JSON.parse(localStorage.getItem("leaderboard")) || [];
-
-  data.sort((a, b) => b.score - a.score);
-
-  data.forEach(p => {
+  arr.slice(0,10).forEach(([uid,score])=>{
     let li = document.createElement("li");
-    li.innerText = `${p.name} | Score: ${p.score.toFixed(1)} | Area: ${p.area.toFixed(2)}`;
+    li.innerText = `${uid.slice(0,6)}... : ${score.toFixed(2)} km²`;
     list.appendChild(li);
   });
+});
+
+// UTILS
+function distance(a,b){
+  let dx = a[0]-b[0];
+  let dy = a[1]-b[1];
+  return Math.sqrt(dx*dx+dy*dy);
 }
 
-// INIT DRAW
-function loadPolygons() {
-  polygons.forEach(p => {
-    if (p.area > 0) {
-      L.polygon(p.coords, {
-        color: p.shield === 2 ? 'gold' : 'green'
-      }).addTo(map);
-    }
-  });
-
-  calculateTotalArea();
+function calcArea(coords){
+  let area = 0;
+  for(let i=0;i<coords.length;i++){
+    let j=(i+1)%coords.length;
+    area += coords[i][0]*coords[j][1];
+    area -= coords[j][0]*coords[i][1];
+  }
+  return Math.abs(area/2)*111*111;
 }
 
-loadPolygons();
-renderLeaderboard();
+function updateStats(){
+  document.getElementById("distance").innerText = totalDistance.toFixed(2);
+  document.getElementById("area").innerText = totalArea.toFixed(3);
+}
