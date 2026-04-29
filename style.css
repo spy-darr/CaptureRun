@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  font-family: Arial;
+  font-family: -apple-system, BlinkMacSystemFont;
 }
 
 #map {
@@ -13,24 +13,23 @@ body {
   width: 100%;
   background: #0D1117;
   color: white;
-  padding: 10px;
+  padding: 12px;
+  border-top: 2px solid #2ECC71;
 }
 
 button {
-  padding: 10px;
-  margin-right: 10px;
+  padding: 12px;
   background: #2ECC71;
   border: none;
   color: white;
   font-weight: bold;
+  border-radius: 8px;
 }
 
-.stats {
-  margin-top: 10px;
+.stats div {
+  margin-top: 6px;
 }
 
 .leaderboard {
   margin-top: 10px;
-  max-height: 150px;
-  overflow-y: auto;
 }
