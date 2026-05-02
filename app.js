@@ -1,4 +1,4 @@
-import { db, userPromise } from './firebase.js';
+import { db } from './firebase.js';
 import {
   collection,
   addDoc,
@@ -8,12 +8,30 @@ import {
 import { haversine, calculateArea } from './utils.js';
 import { updateStreak, getStreak } from './game.js';
 
+// USER SETUP
+let username = localStorage.getItem("username");
+
+window.saveUser = function () {
+  let input = document.getElementById("usernameInput").value.trim();
+  if (!input) return alert("Enter name");
+
+  localStorage.setItem("username", input);
+  location.reload();
+};
+
+if (!username) {
+  document.getElementById("loginScreen").style.display = "flex";
+} else {
+  document.getElementById("loginScreen").style.display = "none";
+}
+
 // MAP
 const map = L.map('map').setView([18.5204, 73.8567], 15);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 .addTo(map);
 
+// STATE
 let path = [];
 let watchId = null;
 let polyline = null;
@@ -21,31 +39,14 @@ let polygonsLayer = L.layerGroup().addTo(map);
 
 let totalDistance = 0;
 let totalArea = 0;
-let userId = null;
-
-// STATUS
-const statusEl = document.getElementById("status");
-
-// STREAK INIT
-document.getElementById("streak").innerText = getStreak();
-
-// AUTH
-userPromise.then(uid => {
-  userId = uid;
-  listenToAreas();
-});
 
 // START
 document.getElementById("startBtn").onclick = () => {
-  statusEl.innerText = "Running";
 
   path = [];
   totalDistance = 0;
 
   watchId = navigator.geolocation.watchPosition(pos => {
-
-    const speed = pos.coords.speed || 0;
-    if (speed > 4.2) return;
 
     const point = [pos.coords.latitude, pos.coords.longitude];
 
@@ -64,7 +65,6 @@ document.getElementById("startBtn").onclick = () => {
 
 // STOP
 document.getElementById("stopBtn").onclick = () => {
-  statusEl.innerText = "Idle";
   navigator.geolocation.clearWatch(watchId);
 };
 
@@ -84,7 +84,6 @@ function detectLoop() {
     if (haversine(path[i], last) < 0.03) {
 
       let loop = path.slice(i);
-
       capture(loop);
 
       path = [];
@@ -96,17 +95,15 @@ function detectLoop() {
 
 // CAPTURE
 async function capture(loop) {
+
   let area = calculateArea(loop);
   if (area < 0.001) return;
 
   let streak = updateStreak();
   document.getElementById("streak").innerText = streak;
 
-  // vibration feedback
-  if (navigator.vibrate) navigator.vibrate(200);
-
   await addDoc(collection(db, "areas"), {
-    owner: userId,
+    owner: username,
     coords: loop,
     area,
     createdAt: Date.now()
@@ -114,32 +111,30 @@ async function capture(loop) {
 }
 
 // LIVE
-function listenToAreas() {
-  onSnapshot(collection(db, "areas"), snapshot => {
+onSnapshot(collection(db, "areas"), snapshot => {
 
-    polygonsLayer.clearLayers();
-    totalArea = 0;
+  polygonsLayer.clearLayers();
+  totalArea = 0;
 
-    let scores = {};
+  let scores = {};
 
-    snapshot.forEach(doc => {
-      let d = doc.data();
+  snapshot.forEach(doc => {
+    let d = doc.data();
 
-      let color = d.owner === userId ? "#2ECC71" : "#E74C3C";
+    let color = d.owner === username ? "#2ECC71" : "#E74C3C";
 
-      L.polygon(d.coords, { color, fillOpacity: 0.3 })
-        .addTo(polygonsLayer);
+    L.polygon(d.coords, { color, fillOpacity: 0.3 })
+      .addTo(polygonsLayer);
 
-      if (d.owner === userId) totalArea += d.area;
+    if (d.owner === username) totalArea += d.area;
 
-      if (!scores[d.owner]) scores[d.owner] = 0;
-      scores[d.owner] += d.area;
-    });
-
-    updateStats();
-    renderLeaderboard(scores);
+    if (!scores[d.owner]) scores[d.owner] = 0;
+    scores[d.owner] += d.area;
   });
-}
+
+  updateStats();
+  renderLeaderboard(scores);
+});
 
 // LEADERBOARD
 function renderLeaderboard(scores) {
@@ -148,9 +143,9 @@ function renderLeaderboard(scores) {
 
   let arr = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
 
-  arr.slice(0,10).forEach(([uid,area])=>{
+  arr.slice(0,10).forEach(([name,area],index)=>{
     let li = document.createElement("li");
-    li.innerText = `${uid.slice(0,6)}... : ${area.toFixed(2)} km²`;
+    li.innerText = `${index+1}. ${name} — ${area.toFixed(2)} km²`;
     list.appendChild(li);
   });
 }
