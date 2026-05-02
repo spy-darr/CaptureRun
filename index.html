@@ -1,40 +1,1094 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Territory Runner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Territory Runner — Level 4A</title>
 
-  <link rel="stylesheet" href="style.css"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --surface: #13151c;
+    --border: #1e2130;
+    --accent: #00ff88;
+    --accent2: #ff4060;
+    --accent3: #4060ff;
+    --text: #e8eaf0;
+    --muted: #5a6080;
+    --warning: #ffaa00;
+    --panel-w: 320px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 1000;
+    flex-shrink: 0;
+  }
+
+  #topbar h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--accent), #00ccff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  #status-pill {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s;
+  }
+
+  #status-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  #status-pill.warning {
+    border-color: var(--warning);
+    color: var(--warning);
+  }
+
+  #status-pill .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  #status-pill.active .dot { animation: blink 1s infinite; }
+
+  @keyframes blink {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* ── MAIN LAYOUT ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── MAP ── */
+  #map {
+    flex: 1;
+    z-index: 1;
+  }
+
+  /* ── SIDE PANEL ── */
+  #panel {
+    width: var(--panel-w);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 2;
+    flex-shrink: 0;
+  }
+
+  .panel-section {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* ── STATS GRID ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .stat-card .val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--accent);
+  }
+
+  .stat-card .lbl {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .stat-card.red .val { color: var(--accent2); }
+  .stat-card.blue .val { color: var(--accent3); }
+  .stat-card.yellow .val { color: var(--warning); }
+
+  /* ── RUN LOG ── */
+  #run-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 16px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .log-entry {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .log-entry .log-icon { flex-shrink: 0; }
+  .log-entry.success { color: var(--accent); }
+  .log-entry.error { color: var(--accent2); }
+  .log-entry.warn { color: var(--warning); }
+  .log-entry.info { color: var(--accent3); }
+
+  /* ── CONTROLS ── */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 11px 8px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; filter: none; }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid var(--accent2);
+  }
+
+  .btn-danger:hover { background: var(--accent2); color: #fff; }
+  .btn-danger:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* ── ANTICHEAT BADGE ── */
+  #anticheat-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .ac-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .ac-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .ac-badge.fail {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  /* ── SHIELD INDICATOR ── */
+  .shield-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .shield-icon {
+    font-size: 1.2rem;
+    filter: drop-shadow(0 0 6px var(--accent3));
+  }
+
+  .shield-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent3);
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    padding: 10px 20px;
+    border-radius: 8px;
+    z-index: 9999;
+    opacity: 0;
+    transition: all 0.3s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  #toast.error-toast {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  /* ── MOBILE COLLAPSE ── */
+  @media (max-width: 700px) {
+    #panel { display: none; }
+    #panel.open {
+      display: flex;
+      position: fixed;
+      right: 0; top: 0; bottom: 0;
+      width: 88vw;
+      z-index: 5000;
+      box-shadow: -8px 0 40px #0008;
+    }
+
+    #mobile-toggle {
+      display: flex;
+    }
+  }
+
+  #mobile-toggle {
+    display: none;
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 4000;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-size: 1.3rem;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 20px #00ff8844;
+  }
+
+  /* Leaflet custom */
+  .leaflet-container { background: #0a0b0f !important; }
+  .leaflet-tile { filter: brightness(0.6) saturate(0.4) hue-rotate(200deg); }
+</style>
 </head>
-
 <body>
 
-<div id="map"></div>
-
-<div class="panel">
-  <button onclick="startRun()">▶ Start</button>
-  <button onclick="stopRun()">⏹ Stop</button>
-
-  <div class="stats">
-    <div>Distance: <span id="distance">0</span> km</div>
-    <div>Area: <span id="area">0</span> km²</div>
-    <div>Zone: <span id="zone">-</span></div>
-  </div>
-
-  <div class="leaderboard">
-    <h3>🏆 Global</h3>
-    <ul id="leaderboard"></ul>
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>⬡ Territory Runner</h1>
+  <div id="status-pill">
+    <span class="dot"></span>
+    <span id="status-text">IDLE</span>
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="firebase.js"></script>
-<script src="app.js"></script>
+<!-- ANTI-CHEAT BAR -->
+<div id="anticheat-bar">
+  <span class="ac-label">ANTI-CHEAT</span>
+  <span class="ac-badge" id="ac-speed">SPD ✓</span>
+  <span class="ac-badge" id="ac-acc">ACC ✓</span>
+  <span class="ac-badge" id="ac-gap">GAP ✓</span>
+  <span class="ac-badge" id="ac-loop">LOOP ✓</span>
+</div>
 
+<!-- MAIN -->
+<div id="main">
+  <div id="map"></div>
+
+  <div id="panel">
+    <!-- MY STATS -->
+    <div class="panel-section">
+      <div class="section-label">My Territory</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="val" id="stat-area">0.00</div>
+          <div class="lbl">km² Area</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="val" id="stat-dist">0.00</div>
+          <div class="lbl">km Distance</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="val" id="stat-score">0</div>
+          <div class="lbl">Score</div>
+        </div>
+        <div class="stat-card red">
+          <div class="val" id="stat-pace">–</div>
+          <div class="lbl">Pace (min/km)</div>
+        </div>
+      </div>
+      <div class="shield-row">
+        <span class="shield-icon">🛡️</span>
+        <span class="shield-label" id="shield-label">Shield: ACTIVE (Level 2)</span>
+      </div>
+    </div>
+
+    <!-- RUN STATS -->
+    <div class="panel-section">
+      <div class="section-label">Current Run</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="val" id="run-pts">0</div>
+          <div class="lbl">GPS Points</div>
+        </div>
+        <div class="stat-card red">
+          <div class="val" id="run-speed">0.0</div>
+          <div class="lbl">km/h Speed</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="val" id="run-dist">0.00</div>
+          <div class="lbl">km Run</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="val" id="run-loops">0</div>
+          <div class="lbl">Loops Found</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="section-label" style="padding: 10px 16px 0; flex-shrink:0;">Run Log</div>
+    <div id="run-log"></div>
+
+    <!-- CONTROLS -->
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-start" onclick="startRun()">START RUN</button>
+      <button class="btn btn-danger" id="btn-stop" onclick="stopRun()" disabled>STOP</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE TOGGLE -->
+<button id="mobile-toggle" onclick="togglePanel()">📊</button>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+//  TERRITORY RUNNER — LEVEL 4A
+//  Features: Polygon intersection, Shield logic, Anti-cheat
+// ═══════════════════════════════════════════════════
+
+// ── CONFIG ──────────────────────────────────────────
+const CFG = {
+  MIN_LOOP_AREA_M2: 5000,       // 5000 m² minimum loop
+  MIN_LOOP_PTS: 8,              // min GPS points for loop
+  CLOSE_DIST_M: 25,             // meters to close a loop
+  MAX_SPEED_KMH: 30,            // anti-cheat speed cap
+  MAX_ACC_M: 40,                // anti-cheat accuracy cap (meters)
+  MAX_GAP_SEC: 15,              // anti-cheat max gap between readings
+  GPS_SMOOTHING: 3,             // rolling avg window
+  SHIELD_LEVEL: 2,              // 1 = basic, 2 = double-run required
+};
+
+// ── STATE ───────────────────────────────────────────
+let state = {
+  running: false,
+  watchId: null,
+  rawPath: [],          // [{lat,lng,t,acc,speed}]
+  smoothedPath: [],     // cleaned path for display
+  territories: [],      // [{id, owner, polygon, shield, area}]
+  myArea: 0,
+  myDist: 0,
+  myScore: 0,
+  pendingBreak: null,   // polygon waiting for 2nd run (shield break)
+  loopCount: 0,
+  anticheat: { speed: true, acc: true, gap: true, loop: true },
+};
+
+// ── MAP SETUP ────────────────────────────────────────
+const map = L.map('map', {
+  zoomControl: true,
+  attributionControl: false,
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+}).addTo(map);
+
+map.setView([51.505, -0.09], 15);
+
+// Layers
+const pathLayer = L.layerGroup().addTo(map);
+const polyLayer = L.layerGroup().addTo(map);
+let pathLine = null;
+let posMarker = null;
+
+// ═══════════════════════════════════════════════════
+//  ANTI-CHEAT ENGINE
+// ═══════════════════════════════════════════════════
+
+function antiCheatCheck(pt, prev) {
+  const result = { ok: true, flags: [] };
+
+  // Speed check
+  if (pt.speed !== null && pt.speed !== undefined) {
+    const kmh = pt.speed * 3.6;
+    if (kmh > CFG.MAX_SPEED_KMH) {
+      result.ok = false;
+      result.flags.push(`SPEED ${kmh.toFixed(1)} km/h`);
+      state.anticheat.speed = false;
+    } else {
+      state.anticheat.speed = true;
+    }
+  }
+
+  // Accuracy check
+  if (pt.acc > CFG.MAX_ACC_M) {
+    result.ok = false;
+    result.flags.push(`ACC ${pt.acc.toFixed(0)}m`);
+    state.anticheat.acc = false;
+  } else {
+    state.anticheat.acc = true;
+  }
+
+  // Gap check
+  if (prev) {
+    const gapSec = (pt.t - prev.t) / 1000;
+    if (gapSec > CFG.MAX_GAP_SEC) {
+      result.flags.push(`GAP ${gapSec.toFixed(0)}s`);
+      state.anticheat.gap = false;
+    } else {
+      state.anticheat.gap = true;
+    }
+
+    // Derived speed check (if device doesn't report speed)
+    const dist = haversine(prev, pt);
+    const derivedKmh = (dist / gapSec) * 3.6;
+    if (derivedKmh > CFG.MAX_SPEED_KMH && gapSec < 10) {
+      result.ok = false;
+      result.flags.push(`DERIVED SPD ${derivedKmh.toFixed(1)} km/h`);
+      state.anticheat.speed = false;
+    }
+  }
+
+  updateACBadges();
+  return result;
+}
+
+function updateACBadges() {
+  const ac = state.anticheat;
+  setACBadge('ac-speed', ac.speed, 'SPD');
+  setACBadge('ac-acc', ac.acc, 'ACC');
+  setACBadge('ac-gap', ac.gap, 'GAP');
+  setACBadge('ac-loop', ac.loop, 'LOOP');
+}
+
+function setACBadge(id, ok, label) {
+  const el = document.getElementById(id);
+  el.textContent = ok ? `${label} ✓` : `${label} ✗`;
+  el.className = ok ? 'ac-badge' : 'ac-badge fail';
+}
+
+// ═══════════════════════════════════════════════════
+//  GPS SMOOTHING (Rolling Average)
+// ═══════════════════════════════════════════════════
+
+function smoothPath(path) {
+  if (path.length < CFG.GPS_SMOOTHING) return path;
+  const w = CFG.GPS_SMOOTHING;
+  return path.map((pt, i) => {
+    const start = Math.max(0, i - Math.floor(w / 2));
+    const end = Math.min(path.length, start + w);
+    const slice = path.slice(start, end);
+    const lat = slice.reduce((s, p) => s + p.lat, 0) / slice.length;
+    const lng = slice.reduce((s, p) => s + p.lng, 0) / slice.length;
+    return { ...pt, lat, lng };
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  GEOMETRY ENGINE
+// ═══════════════════════════════════════════════════
+
+// Haversine distance in meters
+function haversine(a, b) {
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const sin2 = Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(sin2));
+}
+
+// Shoelace area (degrees² → m² using local projection)
+function polygonArea(pts) {
+  if (pts.length < 3) return 0;
+  // Convert to local metres using first point as origin
+  const origin = pts[0];
+  const R = 6371000;
+  const toM = p => ({
+    x: (p.lng - origin.lng) * Math.PI / 180 * R * Math.cos(origin.lat * Math.PI / 180),
+    y: (p.lat - origin.lat) * Math.PI / 180 * R,
+  });
+  const local = pts.map(toM);
+  let area = 0;
+  for (let i = 0, j = local.length - 1; i < local.length; j = i++) {
+    area += (local[j].x + local[i].x) * (local[j].y - local[i].y);
+  }
+  return Math.abs(area / 2);
+}
+
+// Point in polygon (ray casting)
+function pointInPolygon(pt, polygon) {
+  let inside = false;
+  const x = pt.lng, y = pt.lat;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lng, yi = polygon[i].lat;
+    const xj = polygon[j].lng, yj = polygon[j].lat;
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// ── SUTHERLAND-HODGMAN POLYGON CLIPPING ─────────────
+// Returns intersection polygon of subject clipped to clip polygon
+function clipPolygon(subject, clip) {
+  if (!subject.length || !clip.length) return [];
+
+  function inside(p, a, b) {
+    return (b.lng - a.lng) * (p.lat - a.lat) - (b.lat - a.lat) * (p.lng - a.lng) >= 0;
+  }
+
+  function intersect(a, b, c, d) {
+    const A1 = b.lat - a.lat, B1 = a.lng - b.lng;
+    const C1 = A1 * a.lng + B1 * a.lat;
+    const A2 = d.lat - c.lat, B2 = c.lng - d.lng;
+    const C2 = A2 * c.lng + B2 * c.lat;
+    const det = A1 * B2 - A2 * B1;
+    if (Math.abs(det) < 1e-10) return null;
+    return { lng: (C1 * B2 - C2 * B1) / det, lat: (A1 * C2 - A2 * C1) / det };
+  }
+
+  let output = [...subject];
+
+  for (let i = 0; i < clip.length; i++) {
+    if (!output.length) return [];
+    const input = output;
+    output = [];
+    const edgeA = clip[i], edgeB = clip[(i + 1) % clip.length];
+
+    for (let j = 0; j < input.length; j++) {
+      const current = input[j];
+      const prev = input[(j + input.length - 1) % input.length];
+
+      if (inside(current, edgeA, edgeB)) {
+        if (!inside(prev, edgeA, edgeB)) {
+          const pt = intersect(prev, current, edgeA, edgeB);
+          if (pt) output.push(pt);
+        }
+        output.push(current);
+      } else if (inside(prev, edgeA, edgeB)) {
+        const pt = intersect(prev, current, edgeA, edgeB);
+        if (pt) output.push(pt);
+      }
+    }
+  }
+
+  return output;
+}
+
+// ── POLYGON UNION (merge two polygons, simplified) ──
+// For territory merging we just add areas (full union is complex,
+// this tracks areas separately and renders both)
+function polygonsOverlap(a, b) {
+  // Check if any vertex of a is inside b or vice versa
+  return a.some(pt => pointInPolygon(pt, b)) ||
+         b.some(pt => pointInPolygon(pt, a));
+}
+
+// ═══════════════════════════════════════════════════
+//  LOOP DETECTION ENGINE
+// ═══════════════════════════════════════════════════
+
+function detectLoop(path) {
+  if (path.length < CFG.MIN_LOOP_PTS) return null;
+
+  const head = path[0];
+  const tail = path[path.length - 1];
+  const closeDist = haversine(head, tail);
+
+  if (closeDist > CFG.CLOSE_DIST_M) return null;
+
+  // Verify minimum area
+  const area = polygonArea(path);
+  if (area < CFG.MIN_LOOP_AREA_M2) {
+    log('warn', `⚠`, `Loop too small: ${(area/1000).toFixed(1)}k m²`);
+    state.anticheat.loop = false;
+    updateACBadges();
+    return null;
+  }
+
+  state.anticheat.loop = true;
+  updateACBadges();
+  return { polygon: path, area };
+}
+
+// Check if this loop closes and extract the sub-path forming the loop
+function findLoopInPath(path) {
+  if (path.length < CFG.MIN_LOOP_PTS) return null;
+
+  // Scan back from end — find earliest point close to end
+  const tail = path[path.length - 1];
+
+  for (let i = 0; i < path.length - CFG.MIN_LOOP_PTS; i++) {
+    const d = haversine(path[i], tail);
+    if (d < CFG.CLOSE_DIST_M) {
+      const loopPath = path.slice(i);
+      const area = polygonArea(loopPath);
+      if (area >= CFG.MIN_LOOP_AREA_M2) {
+        return { polygon: loopPath, area, startIdx: i };
+      }
+    }
+  }
+
+  return null;
+}
+
+// ═══════════════════════════════════════════════════
+//  SHIELD ENGINE (Level 4A)
+// ═══════════════════════════════════════════════════
+
+function applyLoopResult(loopResult, existingTerritories) {
+  const newPoly = loopResult.polygon;
+  const newArea = loopResult.area;
+
+  // Find any overlapping territories
+  const overlapping = existingTerritories.filter(t =>
+    polygonsOverlap(newPoly, t.polygon)
+  );
+
+  if (overlapping.length === 0) {
+    // Empty land — capture directly
+    captureTerritory(newPoly, newArea);
+    return;
+  }
+
+  for (const territory of overlapping) {
+    if (territory.owner === 'me') {
+      // Expanding own territory — just add
+      log('info', '📐', `Expanded own territory`);
+      captureTerritory(newPoly, newArea, true);
+      return;
+    }
+
+    // Enemy territory
+    if (territory.shield >= 2) {
+      // Level 2 shield: first hit breaks it
+      if (!state.pendingBreak || state.pendingBreak.id !== territory.id) {
+        territory.shield = 1;
+        state.pendingBreak = { id: territory.id, poly: newPoly };
+        updateTerritoryStyle(territory);
+        log('warn', '🛡️', `Shield cracked! Run again to capture.`);
+        showToast('Shield cracked! Run again to capture', false);
+      } else {
+        // Second run — capture!
+        stealTerritory(territory, newPoly, newArea);
+        state.pendingBreak = null;
+      }
+    } else if (territory.shield === 1) {
+      // Level 1 shield — direct steal
+      stealTerritory(territory, newPoly, newArea);
+    } else {
+      stealTerritory(territory, newPoly, newArea);
+    }
+  }
+}
+
+function captureTerritory(polygon, area, merge = false) {
+  const t = {
+    id: Date.now(),
+    owner: 'me',
+    polygon,
+    area,
+    shield: CFG.SHIELD_LEVEL,
+    layer: null,
+  };
+  state.territories.push(t);
+  renderTerritory(t);
+  state.myArea += area / 1e6; // m² → km²
+  state.loopCount++;
+  updateStats();
+  log('success', '✅', `Captured ${(area / 1e6).toFixed(4)} km²`);
+  showToast(`Territory captured! +${(area / 1e6).toFixed(4)} km²`);
+}
+
+function stealTerritory(territory, newPoly, newArea) {
+  // Compute intersection area lost
+  const intersection = clipPolygon(territory.polygon, newPoly);
+  const lostArea = intersection.length >= 3 ? polygonArea(intersection) : 0;
+
+  // Remove or shrink enemy territory
+  polyLayer.removeLayer(territory.layer);
+  territory.owner = 'me';
+  territory.shield = CFG.SHIELD_LEVEL;
+  territory.area = territory.area - lostArea + newArea;
+
+  // Use new polygon (simplified — full boolean difference is very complex)
+  territory.polygon = newPoly;
+  renderTerritory(territory);
+  state.myArea += newArea / 1e6;
+  state.loopCount++;
+  updateStats();
+
+  log('success', '⚔️', `Stole territory! Intersection: ${(lostArea / 1e6).toFixed(5)} km²`);
+  showToast('⚔️ Territory stolen!');
+}
+
+function updateTerritoryStyle(t) {
+  if (t.layer) {
+    polyLayer.removeLayer(t.layer);
+    renderTerritory(t);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  MAP RENDERING
+// ═══════════════════════════════════════════════════
+
+function renderTerritory(t) {
+  const latlngs = t.polygon.map(p => [p.lat, p.lng]);
+
+  let fillColor, strokeColor;
+  if (t.owner === 'me') {
+    fillColor = '#00ff8833';
+    strokeColor = '#00ff88';
+  } else if (t.shield >= 2) {
+    fillColor = '#4060ff33';
+    strokeColor = '#4060ff';
+  } else {
+    fillColor = '#ff406033';
+    strokeColor = '#ff4060';
+  }
+
+  t.layer = L.polygon(latlngs, {
+    color: strokeColor,
+    fillColor,
+    weight: 2,
+    fillOpacity: 0.35,
+    dashArray: t.shield === 1 ? '6,4' : null,
+  }).addTo(polyLayer);
+
+  const areaKm2 = (t.area / 1e6).toFixed(4);
+  t.layer.bindTooltip(
+    `${t.owner === 'me' ? '🟢 Mine' : '🔴 Enemy'} · ${areaKm2} km² · Shield ${t.shield}`,
+    { permanent: false, direction: 'center' }
+  );
+}
+
+function updatePathOnMap() {
+  if (pathLine) pathLayer.removeLayer(pathLine);
+  if (state.smoothedPath.length < 2) return;
+
+  const latlngs = state.smoothedPath.map(p => [p.lat, p.lng]);
+  pathLine = L.polyline(latlngs, {
+    color: '#00ff88',
+    weight: 3,
+    opacity: 0.8,
+  }).addTo(pathLayer);
+}
+
+function updatePosition(pos) {
+  const { latitude: lat, longitude: lng, accuracy: acc, speed } = pos.coords;
+  const t = pos.timestamp;
+  const pt = { lat, lng, acc, speed, t };
+
+  const prev = state.rawPath[state.rawPath.length - 1] || null;
+
+  // Anti-cheat
+  const ac = antiCheatCheck(pt, prev);
+  if (!ac.ok) {
+    ac.flags.forEach(f => log('error', '🚫', `BLOCKED: ${f}`));
+    return; // Reject this point
+  }
+  if (ac.flags.length) {
+    ac.flags.forEach(f => log('warn', '⚠️', f));
+  }
+
+  state.rawPath.push(pt);
+  state.smoothedPath = smoothPath(state.rawPath);
+
+  // Update distance
+  if (prev) {
+    state.myDist += haversine(prev, pt) / 1000;
+  }
+
+  // Update position marker
+  if (!posMarker) {
+    posMarker = L.circleMarker([lat, lng], {
+      radius: 8, color: '#00ff88', fillColor: '#00ff88',
+      fillOpacity: 1, weight: 2,
+    }).addTo(map);
+    map.setView([lat, lng], 16);
+  } else {
+    posMarker.setLatLng([lat, lng]);
+    map.panTo([lat, lng], { animate: true, duration: 0.5 });
+  }
+
+  updatePathOnMap();
+
+  // Update UI
+  const speedKmh = speed ? (speed * 3.6).toFixed(1) : '–';
+  document.getElementById('run-pts').textContent = state.rawPath.length;
+  document.getElementById('run-speed').textContent = speedKmh;
+  document.getElementById('run-dist').textContent = state.myDist.toFixed(2);
+
+  // Calculate pace
+  if (speed && speed > 0.5) {
+    const paceMin = 60 / (speed * 3.6);
+    const m = Math.floor(paceMin);
+    const s = Math.floor((paceMin - m) * 60);
+    document.getElementById('stat-pace').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }
+
+  // Loop detection — check on every point
+  const loopResult = findLoopInPath(state.smoothedPath);
+  if (loopResult) {
+    log('success', '🔄', `Loop closed! Area: ${(loopResult.area / 1e6).toFixed(4)} km²`);
+    applyLoopResult(loopResult, state.territories);
+
+    // Reset path to continue running from loop closure point
+    state.rawPath = state.rawPath.slice(loopResult.startIdx);
+    state.smoothedPath = smoothPath(state.rawPath);
+    document.getElementById('run-loops').textContent = state.loopCount;
+  }
+
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════
+
+function updateStats() {
+  state.myScore = Math.round(state.myArea * 1000 + state.myDist * 10);
+  document.getElementById('stat-area').textContent = state.myArea.toFixed(4);
+  document.getElementById('stat-dist').textContent = state.myDist.toFixed(2);
+  document.getElementById('stat-score').textContent = state.myScore;
+
+  // Shield label
+  const shieldLvl = CFG.SHIELD_LEVEL;
+  document.getElementById('shield-label').textContent =
+    shieldLvl >= 2 ? 'Shield: ACTIVE (Level 2 — 2 runs to steal)' :
+    shieldLvl === 1 ? 'Shield: BASIC (1 run to steal)' :
+    'Shield: NONE';
+}
+
+// ═══════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════
+
+function startRun() {
+  if (!navigator.geolocation) {
+    showToast('GPS not available', true);
+    return;
+  }
+
+  state.running = true;
+  state.rawPath = [];
+  state.smoothedPath = [];
+  pathLayer.clearLayers();
+  pathLine = null;
+
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-stop').disabled = false;
+  setStatus('TRACKING', true);
+  log('info', '🏃', 'Run started — GPS active');
+
+  state.watchId = navigator.geolocation.watchPosition(
+    updatePosition,
+    err => {
+      log('error', '❌', `GPS Error: ${err.message}`);
+      setStatus('GPS ERR', false, true);
+    },
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+  );
+}
+
+function stopRun() {
+  if (state.watchId) navigator.geolocation.clearWatch(state.watchId);
+  state.running = false;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+  setStatus('IDLE', false);
+  log('info', '🛑', `Run ended. Distance: ${state.myDist.toFixed(2)} km`);
+}
+
+function setStatus(text, active, warning = false) {
+  const pill = document.getElementById('status-pill');
+  document.getElementById('status-text').textContent = text;
+  pill.className = 'status-pill' + (active ? ' active' : warning ? ' warning' : '');
+  // Fix: set id back
+  pill.id = 'status-pill';
+  if (active) pill.classList.add('active');
+  if (warning) pill.classList.add('warning');
+}
+
+// ═══════════════════════════════════════════════════
+//  LOG
+// ═══════════════════════════════════════════════════
+
+function log(type, icon, msg) {
+  const el = document.createElement('div');
+  el.className = `log-entry ${type}`;
+  const t = new Date().toTimeString().slice(0, 8);
+  el.innerHTML = `<span class="log-icon">${icon}</span><span>[${t}] ${msg}</span>`;
+  const logEl = document.getElementById('run-log');
+  logEl.prepend(el);
+  // Keep max 100 entries
+  while (logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+}
+
+// ── TOAST ────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'show error-toast' : 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3000);
+}
+
+// ── MOBILE ───────────────────────────────────────────
+function togglePanel() {
+  document.getElementById('panel').classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════════
+//  DEMO: Seed some enemy territories so you can see the UI
+// ═══════════════════════════════════════════════════
+
+function seedDemoTerritories() {
+  // These will appear once GPS locates you — using London as example
+  // In production these come from Firebase
+  const center = { lat: 51.505, lng: -0.09 };
+  const demo = [
+    {
+      id: 'demo1',
+      owner: 'enemy',
+      shield: 2,
+      polygon: offsetPolygon(center, 0.0004, 0.0006, 6),
+    },
+    {
+      id: 'demo2',
+      owner: 'enemy',
+      shield: 1,
+      polygon: offsetPolygon({ lat: center.lat + 0.003, lng: center.lng + 0.002 }, 0.0003, 0.0005, 5),
+    },
+  ];
+
+  demo.forEach(t => {
+    t.area = polygonArea(t.polygon);
+    t.layer = null;
+    state.territories.push(t);
+    renderTerritory(t);
+  });
+
+  log('info', '🌍', 'Demo territories loaded');
+}
+
+function offsetPolygon(center, dlat, dlng, sides) {
+  return Array.from({ length: sides }, (_, i) => {
+    const angle = (i / sides) * 2 * Math.PI;
+    return {
+      lat: center.lat + dlat * Math.sin(angle),
+      lng: center.lng + dlng * Math.cos(angle),
+    };
+  });
+}
+
+// ── INIT ─────────────────────────────────────────────
+seedDemoTerritories();
+updateStats();
+log('info', '⚡', 'Territory Runner 4A loaded');
+log('info', '🔧', 'Polygon intersection: Sutherland-Hodgman');
+log('info', '🛡️', 'Shield engine: Level 2 (double-run)');
+log('info', '🚫', `Anti-cheat: max ${CFG.MAX_SPEED_KMH} km/h, acc ${CFG.MAX_ACC_M}m`);
+</script>
 </body>
 </html>
