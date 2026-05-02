@@ -16,19 +16,27 @@ body {
   padding: 12px;
 }
 
+.buttons {
+  display: flex;
+  gap: 10px;
+}
+
 button {
-  padding: 10px;
+  flex: 1;
+  padding: 12px;
   background: #2ECC71;
   border: none;
+  border-radius: 8px;
   color: white;
-  margin-right: 8px;
-  border-radius: 6px;
+  font-weight: bold;
 }
 
 .stats {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .leaderboard {
   margin-top: 10px;
+  max-height: 120px;
+  overflow-y: auto;
 }
