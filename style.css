@@ -1,21 +1,47 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont;
+  overflow: hidden;
 }
 
+/* MAP */
 #map {
-  height: 100vh;
-}
-
-.panel {
-  position: absolute;
-  bottom: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-  background: #0D1117;
-  color: white;
-  padding: 12px;
+  height: 100%;
+  z-index: 1;
 }
 
+/* PANEL */
+.panel {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 999;
+
+  background: rgba(13,17,23,0.9);
+  backdrop-filter: blur(12px);
+
+  border-radius: 16px;
+  padding: 14px;
+  color: white;
+
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+/* HANDLE (for premium feel) */
+.handle {
+  width: 40px;
+  height: 4px;
+  background: #444;
+  border-radius: 10px;
+  margin: 0 auto 10px auto;
+}
+
+/* BUTTONS */
 .buttons {
   display: flex;
   gap: 10px;
@@ -23,20 +49,42 @@ body {
 
 button {
   flex: 1;
-  padding: 12px;
-  background: #2ECC71;
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 10px;
   border: none;
-  border-radius: 8px;
-  color: white;
   font-weight: bold;
 }
 
-.stats {
-  margin-top: 10px;
+#startBtn {
+  background: #2ECC71;
 }
 
+#stopBtn {
+  background: #E74C3C;
+}
+
+/* STATS */
+.stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* LEADERBOARD */
 .leaderboard {
-  margin-top: 10px;
+  margin-top: 12px;
   max-height: 120px;
   overflow-y: auto;
+}
+
+.leaderboard h3 {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+}
+
+.leaderboard li {
+  font-size: 13px;
+  margin-bottom: 4px;
 }
