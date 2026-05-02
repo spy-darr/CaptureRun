@@ -14,20 +14,19 @@ body {
   background: #0D1117;
   color: white;
   padding: 12px;
-  border-top: 2px solid #2ECC71;
 }
 
 button {
-  padding: 12px;
+  padding: 10px;
   background: #2ECC71;
   border: none;
   color: white;
-  font-weight: bold;
-  border-radius: 8px;
+  margin-right: 8px;
+  border-radius: 6px;
 }
 
-.stats div {
-  margin-top: 6px;
+.stats {
+  margin-top: 8px;
 }
 
 .leaderboard {
