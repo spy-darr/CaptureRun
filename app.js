@@ -7,8 +7,10 @@ import {
 
 import { haversine, calculateArea } from './utils.js';
 
-// MAP INIT
-const map = L.map('map').setView([18.5204, 73.8567], 15);
+// INIT MAP
+const map = L.map('map', {
+  zoomControl: false
+}).setView([18.5204, 73.8567], 15);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
   .addTo(map);
@@ -21,10 +23,9 @@ let polygonsLayer = L.layerGroup().addTo(map);
 
 let totalDistance = 0;
 let totalArea = 0;
-
 let userId = null;
 
-// 🔥 WAIT FOR AUTH
+// WAIT FOR AUTH
 userPromise.then(uid => {
   userId = uid;
   listenToAreas();
@@ -36,6 +37,7 @@ document.getElementById("startBtn").onclick = () => {
   totalDistance = 0;
 
   watchId = navigator.geolocation.watchPosition(pos => {
+
     const speed = pos.coords.speed || 0;
 
     if (speed > 4.2) return;
@@ -53,7 +55,8 @@ document.getElementById("startBtn").onclick = () => {
     updateStats();
 
   }, err => alert("GPS Error"), {
-    enableHighAccuracy: true
+    enableHighAccuracy: true,
+    maximumAge: 1000
   });
 };
 
@@ -65,7 +68,11 @@ document.getElementById("stopBtn").onclick = () => {
 // DRAW PATH
 function drawPath() {
   if (polyline) polyline.remove();
-  polyline = L.polyline(path, { color: 'blue' }).addTo(map);
+
+  polyline = L.polyline(path, {
+    color: '#00BFFF',
+    weight: 5
+  }).addTo(map);
 }
 
 // LOOP DETECTION
@@ -76,6 +83,7 @@ function detectLoop() {
 
   for (let i = 0; i < path.length - 15; i++) {
     if (haversine(path[i], last) < 0.03) {
+
       let loop = path.slice(i);
 
       if (loop.length > 20) {
@@ -103,9 +111,8 @@ async function captureArea(loop) {
   });
 }
 
-// LISTENER (FIXED NO FLICKER)
+// REALTIME MAP
 function listenToAreas() {
-
   onSnapshot(collection(db, "areas"), snapshot => {
 
     polygonsLayer.clearLayers();
@@ -116,14 +123,14 @@ function listenToAreas() {
     snapshot.forEach(doc => {
       let d = doc.data();
 
-      const color = d.owner === userId ? "#2ECC71" : "#E74C3C";
+      let color = d.owner === userId ? "#2ECC71" : "#E74C3C";
 
-      L.polygon(d.coords, { color })
-        .addTo(polygonsLayer);
+      L.polygon(d.coords, {
+        color: color,
+        fillOpacity: 0.3
+      }).addTo(polygonsLayer);
 
-      if (d.owner === userId) {
-        totalArea += d.area;
-      }
+      if (d.owner === userId) totalArea += d.area;
 
       if (!scores[d.owner]) scores[d.owner] = 0;
       scores[d.owner] += d.area;
@@ -139,10 +146,9 @@ function renderLeaderboard(scores) {
   let list = document.getElementById("leaderboard");
   list.innerHTML = "";
 
-  let arr = Object.entries(scores)
-    .sort((a, b) => b[1] - a[1]);
+  let arr = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
 
-  arr.slice(0, 10).forEach(([uid, area]) => {
+  arr.slice(0,10).forEach(([uid,area])=>{
     let li = document.createElement("li");
     li.innerText = `${uid.slice(0,6)}... : ${area.toFixed(2)} km²`;
     list.appendChild(li);
