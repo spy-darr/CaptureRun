@@ -6,16 +6,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 import { haversine, calculateArea } from './utils.js';
+import { updateStreak, getStreak } from './game.js';
 
-// INIT MAP
-const map = L.map('map', {
-  zoomControl: false
-}).setView([18.5204, 73.8567], 15);
+// MAP
+const map = L.map('map').setView([18.5204, 73.8567], 15);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-  .addTo(map);
+.addTo(map);
 
-// STATE
 let path = [];
 let watchId = null;
 let polyline = null;
@@ -25,7 +23,13 @@ let totalDistance = 0;
 let totalArea = 0;
 let userId = null;
 
-// WAIT FOR AUTH
+// STATUS
+const statusEl = document.getElementById("status");
+
+// STREAK INIT
+document.getElementById("streak").innerText = getStreak();
+
+// AUTH
 userPromise.then(uid => {
   userId = uid;
   listenToAreas();
@@ -33,13 +37,14 @@ userPromise.then(uid => {
 
 // START
 document.getElementById("startBtn").onclick = () => {
+  statusEl.innerText = "Running";
+
   path = [];
   totalDistance = 0;
 
   watchId = navigator.geolocation.watchPosition(pos => {
 
     const speed = pos.coords.speed || 0;
-
     if (speed > 4.2) return;
 
     const point = [pos.coords.latitude, pos.coords.longitude];
@@ -54,28 +59,22 @@ document.getElementById("startBtn").onclick = () => {
     detectLoop();
     updateStats();
 
-  }, err => alert("GPS Error"), {
-    enableHighAccuracy: true,
-    maximumAge: 1000
   });
 };
 
 // STOP
 document.getElementById("stopBtn").onclick = () => {
+  statusEl.innerText = "Idle";
   navigator.geolocation.clearWatch(watchId);
 };
 
-// DRAW PATH
+// DRAW
 function drawPath() {
   if (polyline) polyline.remove();
-
-  polyline = L.polyline(path, {
-    color: '#00BFFF',
-    weight: 5
-  }).addTo(map);
+  polyline = L.polyline(path, { color: '#00BFFF' }).addTo(map);
 }
 
-// LOOP DETECTION
+// LOOP
 function detectLoop() {
   if (path.length < 25) return;
 
@@ -86,9 +85,7 @@ function detectLoop() {
 
       let loop = path.slice(i);
 
-      if (loop.length > 20) {
-        captureArea(loop);
-      }
+      capture(loop);
 
       path = [];
       if (polyline) polyline.remove();
@@ -98,20 +95,25 @@ function detectLoop() {
 }
 
 // CAPTURE
-async function captureArea(loop) {
-  const area = calculateArea(loop);
-
+async function capture(loop) {
+  let area = calculateArea(loop);
   if (area < 0.001) return;
+
+  let streak = updateStreak();
+  document.getElementById("streak").innerText = streak;
+
+  // vibration feedback
+  if (navigator.vibrate) navigator.vibrate(200);
 
   await addDoc(collection(db, "areas"), {
     owner: userId,
     coords: loop,
-    area: area,
+    area,
     createdAt: Date.now()
   });
 }
 
-// REALTIME MAP
+// LIVE
 function listenToAreas() {
   onSnapshot(collection(db, "areas"), snapshot => {
 
@@ -125,10 +127,8 @@ function listenToAreas() {
 
       let color = d.owner === userId ? "#2ECC71" : "#E74C3C";
 
-      L.polygon(d.coords, {
-        color: color,
-        fillOpacity: 0.3
-      }).addTo(polygonsLayer);
+      L.polygon(d.coords, { color, fillOpacity: 0.3 })
+        .addTo(polygonsLayer);
 
       if (d.owner === userId) totalArea += d.area;
 
