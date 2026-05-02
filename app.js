@@ -1,32 +1,46 @@
-import { db, userId } from './firebase.js';
-import { collection, addDoc, onSnapshot, updateDoc, doc } 
-from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { db, userPromise } from './firebase.js';
+import {
+  collection,
+  addDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-import { haversine, calculateArea, isOverlapping } from './utils.js';
+import { haversine, calculateArea } from './utils.js';
 
-let map = L.map('map').setView([18.5204, 73.8567], 15);
+// MAP INIT
+const map = L.map('map').setView([18.5204, 73.8567], 15);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+  .addTo(map);
 
+// STATE
 let path = [];
 let watchId = null;
 let polyline = null;
+let polygonsLayer = L.layerGroup().addTo(map);
 
 let totalDistance = 0;
 let totalArea = 0;
 
-// START RUN
-window.startRun = function() {
+let userId = null;
+
+// 🔥 WAIT FOR AUTH
+userPromise.then(uid => {
+  userId = uid;
+  listenToAreas();
+});
+
+// START
+document.getElementById("startBtn").onclick = () => {
   path = [];
   totalDistance = 0;
 
   watchId = navigator.geolocation.watchPosition(pos => {
+    const speed = pos.coords.speed || 0;
 
-    let speed = pos.coords.speed || 0;
+    if (speed > 4.2) return;
 
-    if (speed > 4.2) return; // anti cheat
-
-    let point = [pos.coords.latitude, pos.coords.longitude];
+    const point = [pos.coords.latitude, pos.coords.longitude];
 
     if (path.length > 0) {
       totalDistance += haversine(path[path.length - 1], point);
@@ -36,7 +50,6 @@ window.startRun = function() {
 
     drawPath();
     detectLoop();
-
     updateStats();
 
   }, err => alert("GPS Error"), {
@@ -45,13 +58,13 @@ window.startRun = function() {
 };
 
 // STOP
-window.stopRun = function() {
+document.getElementById("stopBtn").onclick = () => {
   navigator.geolocation.clearWatch(watchId);
 };
 
 // DRAW PATH
 function drawPath() {
-  if (polyline) map.removeLayer(polyline);
+  if (polyline) polyline.remove();
   polyline = L.polyline(path, { color: 'blue' }).addTo(map);
 }
 
@@ -63,7 +76,6 @@ function detectLoop() {
 
   for (let i = 0; i < path.length - 15; i++) {
     if (haversine(path[i], last) < 0.03) {
-
       let loop = path.slice(i);
 
       if (loop.length > 20) {
@@ -71,15 +83,15 @@ function detectLoop() {
       }
 
       path = [];
+      if (polyline) polyline.remove();
       break;
     }
   }
 }
 
-// CAPTURE AREA
+// CAPTURE
 async function captureArea(loop) {
-
-  let area = calculateArea(loop);
+  const area = calculateArea(loop);
 
   if (area < 0.001) return;
 
@@ -87,59 +99,52 @@ async function captureArea(loop) {
     owner: userId,
     coords: loop,
     area: area,
-    shield: 1,
     createdAt: Date.now()
   });
 }
 
-// LIVE MAP
-onSnapshot(collection(db, "areas"), snapshot => {
+// LISTENER (FIXED NO FLICKER)
+function listenToAreas() {
 
-  map.eachLayer(layer => {
-    if (layer instanceof L.Polygon) map.removeLayer(layer);
+  onSnapshot(collection(db, "areas"), snapshot => {
+
+    polygonsLayer.clearLayers();
+    totalArea = 0;
+
+    let scores = {};
+
+    snapshot.forEach(doc => {
+      let d = doc.data();
+
+      const color = d.owner === userId ? "#2ECC71" : "#E74C3C";
+
+      L.polygon(d.coords, { color })
+        .addTo(polygonsLayer);
+
+      if (d.owner === userId) {
+        totalArea += d.area;
+      }
+
+      if (!scores[d.owner]) scores[d.owner] = 0;
+      scores[d.owner] += d.area;
+    });
+
+    updateStats();
+    renderLeaderboard(scores);
   });
-
-  totalArea = 0;
-
-  snapshot.forEach(docSnap => {
-    let d = docSnap.data();
-
-    let color = d.owner === userId ? "#2ECC71" : "#E74C3C";
-
-    L.polygon(d.coords, {
-      color: d.shield === 2 ? "gold" : color
-    }).addTo(map);
-
-    if (d.owner === userId) totalArea += d.area;
-  });
-
-  updateStats();
-  updateLeaderboard(snapshot);
-});
+}
 
 // LEADERBOARD
-function updateLeaderboard(snapshot) {
-
-  let scores = {};
-
-  snapshot.forEach(doc => {
-    let d = doc.data();
-
-    if (!scores[d.owner]) {
-      scores[d.owner] = { area: 0 };
-    }
-
-    scores[d.owner].area += d.area;
-  });
-
-  let arr = Object.entries(scores).sort((a,b)=>b[1].area - a[1].area);
-
+function renderLeaderboard(scores) {
   let list = document.getElementById("leaderboard");
   list.innerHTML = "";
 
-  arr.slice(0,10).forEach(([uid,data])=>{
+  let arr = Object.entries(scores)
+    .sort((a, b) => b[1] - a[1]);
+
+  arr.slice(0, 10).forEach(([uid, area]) => {
     let li = document.createElement("li");
-    li.innerText = `${uid.slice(0,6)}... : ${data.area.toFixed(2)} km²`;
+    li.innerText = `${uid.slice(0,6)}... : ${area.toFixed(2)} km²`;
     list.appendChild(li);
   });
 }
