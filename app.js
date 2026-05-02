@@ -8,12 +8,13 @@ import {
 import { haversine, calculateArea } from './utils.js';
 import { updateStreak, getStreak } from './game.js';
 
-// USER SETUP
+// USER LOGIN
 let username = localStorage.getItem("username");
 
 window.saveUser = function () {
-  let input = document.getElementById("usernameInput").value.trim();
-  if (!input) return alert("Enter name");
+  const input = document.getElementById("usernameInput").value.trim();
+
+  if (!input) return alert("Enter your name");
 
   localStorage.setItem("username", input);
   location.reload();
@@ -39,6 +40,9 @@ let polygonsLayer = L.layerGroup().addTo(map);
 
 let totalDistance = 0;
 let totalArea = 0;
+
+// STREAK
+document.getElementById("streak").innerText = getStreak();
 
 // START
 document.getElementById("startBtn").onclick = () => {
@@ -68,13 +72,13 @@ document.getElementById("stopBtn").onclick = () => {
   navigator.geolocation.clearWatch(watchId);
 };
 
-// DRAW
+// DRAW PATH
 function drawPath() {
   if (polyline) polyline.remove();
   polyline = L.polyline(path, { color: '#00BFFF' }).addTo(map);
 }
 
-// LOOP
+// LOOP DETECTION
 function detectLoop() {
   if (path.length < 25) return;
 
@@ -95,7 +99,6 @@ function detectLoop() {
 
 // CAPTURE
 async function capture(loop) {
-
   let area = calculateArea(loop);
   if (area < 0.001) return;
 
@@ -110,7 +113,7 @@ async function capture(loop) {
   });
 }
 
-// LIVE
+// LIVE MAP
 onSnapshot(collection(db, "areas"), snapshot => {
 
   polygonsLayer.clearLayers();
@@ -143,9 +146,9 @@ function renderLeaderboard(scores) {
 
   let arr = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
 
-  arr.slice(0,10).forEach(([name,area],index)=>{
+  arr.forEach(([name,area],i)=>{
     let li = document.createElement("li");
-    li.innerText = `${index+1}. ${name} — ${area.toFixed(2)} km²`;
+    li.innerText = `${i+1}. ${name} — ${area.toFixed(2)} km²`;
     list.appendChild(li);
   });
 }
