@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Territory Runner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -12,8 +12,9 @@
 
 <div id="map"></div>
 
+<div class="status" id="status">Idle</div>
+
 <div class="panel">
-  <div class="handle"></div>
 
   <div class="buttons">
     <button id="startBtn">Start</button>
@@ -23,15 +24,18 @@
   <div class="stats">
     <div>📍 <span id="distance">0</span> km</div>
     <div>🟩 <span id="area">0</span> km²</div>
+    <div>🔥 <span id="streak">0</span></div>
   </div>
 
   <div class="leaderboard">
     <h3>🏆 Top Players</h3>
     <ul id="leaderboard"></ul>
   </div>
+
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <script type="module" src="app.js"></script>
 
 </body>
