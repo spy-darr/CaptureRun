@@ -20,8 +20,6 @@ export const db = getFirestore(app);
 
 const auth = getAuth(app);
 
-export let userId = null;
-
-signInAnonymously(auth).then(res => {
-  userId = res.user.uid;
-});
+// 🔥 FIX: PROMISE BASED USER
+export const userPromise = signInAnonymously(auth)
+  .then(res => res.user.uid);
