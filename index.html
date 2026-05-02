@@ -10,16 +10,27 @@
 
 <body>
 
+<!-- LOGIN SCREEN -->
 <div id="loginScreen" class="login">
-  <h2>Enter Your Name</h2>
-  <input id="usernameInput" placeholder="Your name"/>
-  <button onclick="saveUser()">Start Game</button>
+  <div class="login-card">
+    <h2>Welcome</h2>
+    <p>Claim your territory</p>
+
+    <input id="usernameInput" placeholder="Enter your name"/>
+
+    <button onclick="saveUser()" class="primary-btn">
+      Start Running
+    </button>
+  </div>
 </div>
 
+<!-- MAP -->
 <div id="map"></div>
 
+<!-- STATUS -->
 <div class="status" id="status">Idle</div>
 
+<!-- PANEL -->
 <div class="panel">
 
   <div class="buttons">
